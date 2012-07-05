@@ -26,7 +26,7 @@ for ( StepCount al : fb.stepCount( fbQuery ) )
 ```
 
 ##Dependencies
- * [Apache HttpClient 4.2](http://hc.apache.org/)
+ * [Apache HttpClient 4.2.1](http://hc.apache.org/) (Note: 4.2 release has a problematic bug, be sure to get 4.2.1)
  * [cg-jcommons](https://github.com/claygregory/cg-jcommons)
 
 ##Downloads
