@@ -14,8 +14,21 @@ And the following are also available at a daily resolution:
  * Floor count
  * Step count
 
+##Example Usage
+```
+Fitbit fb = new Fitbit( "fitbit-email", "fitbit-password" );
+  	
+FitbitQuery fbQuery = FitbitQuery.create( )
+  .minimumTimestamp( startDate )
+  .maximumTimestamp( endDate )
+  .resolution( FitbitResolution.INTRADAY );
+		
+for ( StepCount al : fb.stepCount( fbQuery ) )
+  System.out.println( al.getTimestampAsDate( ) + " " + al.getSteps( ) );
+```
+
 ##Dependencies
- * [Apache HttpClient 4.2](http://hc.apache.org/)
+ * [Apache HttpClient 4.2.1](http://hc.apache.org/) (Note: 4.2 release has a problematic bug, be sure to get 4.2.1)
  * [cg-jcommons](https://github.com/claygregory/cg-jcommons)
 
 ##Downloads
