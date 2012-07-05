@@ -108,7 +108,7 @@
 		</dependency>
 		<dependency>
 			<groupId>com.claygregory</groupId>
-			<artifactId>cg-commons</artifactId>
+			<artifactId>cg-jcommons</artifactId>
 			<version>0.1-SNAPSHOT</version>
 			<scope>compile</scope>
 		</dependency>
