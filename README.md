@@ -12,6 +12,19 @@ And the following are also available as a daily resolution:
  * Activity score
  * Step count
 
+##Example Usage
+```
+Fitbit fb = new Fitbit( "fitbit-email", "fitbit-password" );
+  	
+FitbitQuery fbQuery = FitbitQuery.create( )
+  .minimumTimestamp( startDate )
+  .maximumTimestamp( endDate )
+  .resolution( FitbitResolution.INTRADAY );
+		
+for ( StepCount al : fb.stepCount( fbQuery ) )
+  System.out.println( al.getTimestampAsDate( ) + " " + al.getSteps( ) );
+```
+
 ##Dependencies
  * [Apache HttpClient 4.2](http://hc.apache.org/)
  * [cg-jcommons](https://github.com/claygregory/cg-jcommons)
