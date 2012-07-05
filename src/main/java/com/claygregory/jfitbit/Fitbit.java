@@ -41,6 +41,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import com.claygregory.common.data.Duration;
+import com.claygregory.common.data.TimestampedEvent;
 import com.claygregory.common.net.URLBuilder;
 import com.claygregory.common.util.DateUtil;
 
@@ -149,7 +150,7 @@ public class Fitbit {
 					level.setVeryActive( d );
 			}
 		} );
-		return result;
+		return filterResults( result, q );
 	}
 	
 	/**
@@ -182,7 +183,7 @@ public class Fitbit {
 				result.add( as );
 			}
 		} );
-		return result;
+		return filterResults( result, q );
 	}
 	
 	/**
@@ -216,7 +217,7 @@ public class Fitbit {
 				result.add( sl );
 			}
 		} );
-		return result;
+		return filterResults( result, q );
 	}
 	
 	/**
@@ -249,7 +250,7 @@ public class Fitbit {
 				result.add( sc );
 			}
 		} );
-		return result;
+		return filterResults( result, q );
 	}
 
 	private HttpClient createHttpClient( ) {
@@ -323,6 +324,16 @@ public class Fitbit {
 				throw new FitbitExecutionException( e );
 			}
 		}
+	}
+	
+	private static<T extends TimestampedEvent> List<T> filterResults( List<T> results, FitbitQuery query ) {
+		
+		List<T> filteredResults = new ArrayList<T>( );
+		for ( T r : results )
+			if ( r.getTimestamp( ) >= query.getMinimumTimestamp( ) && r.getTimestamp( ) <= query.getMaximumTimestamp( ) )
+				filteredResults.add(  r );
+				
+		return filteredResults;
 	}
 	
 	private static long parseDate( Date requestedDate, String date ) throws ParseException {
