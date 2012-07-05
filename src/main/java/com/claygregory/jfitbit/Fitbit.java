@@ -252,6 +252,39 @@ public class Fitbit {
 		} );
 		return filterResults( result, q );
 	}
+	
+	/**
+	 * Provides floor counts at either daily or five minute resolutions.
+	 * 
+	 * @param q
+	 * @return List of {@link FloorCount}s for time range specified by query parameter
+	 */
+	public List<FloorCount> floorCount( FitbitQuery q ) {
+		
+		String type = "";
+		switch ( q.getResolution( ) ) {
+			case INTRADAY:
+				type = "intradayAltitude";
+				break;
+			case DAILY:
+				type = "altitude";
+				break;
+		}
+		
+		final List<FloorCount> result = new ArrayList<FloorCount>( );
+		this.execute( type, q, new ResponseHandler( ) {
+			
+			@Override
+			protected void process( ResponseValue value, boolean first ) {
+				FloorCount fc = new FloorCount( );
+				fc.setFloors( Math.round( Float.parseFloat( value.value ) ) );
+				fc.setTimestamp( value.startTimestamp );
+				fc.setIntervalSize( value.duration );
+				result.add( fc );
+			}
+		} );
+		return filterResults( result, q );
+	}
 
 	private HttpClient createHttpClient( ) {
 		DefaultHttpClient httpClient = new DefaultHttpClient( );

@@ -4,12 +4,14 @@ jFitbit is an unofficial Java Fitbit client. While Fitbit provides an API for fe
 
 This client currently supports fetching the following data at an intraday resolution:
  * Activity score on a 5-minute interval
+ * Floor count on a 5-minute interval
  * Sleep level on a 1-minute interval
  * Step count on a 5-minute interval
 
-And the following are also available as a daily resolution:
+And the following are also available at a daily resolution:
  * Activity level 
  * Activity score
+ * Floor count
  * Step count
 
 ##Dependencies
