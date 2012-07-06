@@ -221,6 +221,39 @@ public class Fitbit {
 	}
 	
 	/**
+	 * Provides calories consumed throughout the day. Only 
+	 * available at {@link FitbitResolution#DAILY} resolution.
+	 * 
+	 * @param q
+	 * @return List of {@link CalorieCount}s for time range specified by query parameter
+	 */
+	public List<CalorieCount> calorieCount( FitbitQuery q ) {
+		
+		String type = "";
+		switch ( q.getResolution( ) ) {
+			case INTRADAY:
+				throw new IllegalArgumentException( );
+			case DAILY:
+				type = "caloriesConsumed";
+				break;
+		}
+		
+		final List<CalorieCount> result = new ArrayList<CalorieCount>( );
+		this.execute( type, q, new ResponseHandler( ) {
+			
+			@Override
+			protected void process( ResponseValue value, boolean first ) {
+				CalorieCount cc = new CalorieCount( );
+				cc.setCalories( Math.round( Float.parseFloat( value.value ) ) );
+				cc.setTimestamp( value.startTimestamp );
+				cc.setIntervalSize( value.duration );
+				result.add( cc );
+			}
+		} );
+		return filterResults( result, q );
+	}
+	
+	/**
 	 * Provides step counts at either daily or five minute resolutions.
 	 * 
 	 * @param q
