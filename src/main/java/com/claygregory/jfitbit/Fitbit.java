@@ -68,21 +68,21 @@ public class Fitbit {
 	
 	private static DateFormat REQUEST_DATE_FORMAT = new SimpleDateFormat( "yyyy-M-dd" );
 	
-	private static class ResponseValue {
+	protected static class ResponseValue {
 		
-		private String description;
+		protected String description;
 		
-		private String value;
+		protected String value;
 		
-		private Long startTimestamp;
+		protected Long startTimestamp;
 		
-		private Long endTimestamp;
+		protected Long endTimestamp;
 		
-		private Duration duration;
+		protected Duration duration;
 
 	}
 	
-	private static abstract class ResponseHandler {
+	protected static abstract class ResponseHandler {
 		
 		protected abstract void process( ResponseValue value, boolean first );
 
@@ -128,26 +128,26 @@ public class Fitbit {
 		final List<ActivityLevel> result = new ArrayList<ActivityLevel>( );
 		this.execute( type, q, new ResponseHandler( ) {
 			
-			private ActivityLevel level;
+			protected ActivityLevel level;
 			
 			@Override
 			protected void process( ResponseValue value, boolean first ) {
 				
 				if ( first ) {
-					level = new ActivityLevel( );
-					level.setTimestamp( value.startTimestamp );
-					level.setIntervalSize( value.duration );
+					this.level = new ActivityLevel( );
+					this.level.setTimestamp( value.startTimestamp );
+					this.level.setIntervalSize( value.duration );
 					
-					result.add( level );
+					result.add( this.level );
 				}
 				
 				Duration d = new Duration( ( long ) Math.round( Float.parseFloat( value.value ) * Duration.MS_IN_HOURS ) );
 				if ( value.description.contains( "lightly" ) )
-					level.setLightlyActive( d );
+					this.level.setLightlyActive( d );
 				else if ( value.description.contains( "fairly" ) )
-					level.setFairlyActive( d );
+					this.level.setFairlyActive( d );
 				else if ( value.description.contains( "very" ) )
-					level.setVeryActive( d );
+					this.level.setVeryActive( d );
 			}
 		} );
 		return filterResults( result, q );
@@ -358,10 +358,10 @@ public class Fitbit {
 		}
 		
 		Matcher m = Pattern.compile( "./user/([A-Z0-9]*).*?Public Profile" ).matcher( response );
-		if ( m.find( ) )
-			return m.group( 1 );
-		else
+		if ( !m.find( ) )
 			throw new FitbitAuthenticationException( );
+		
+		return m.group( 1 );
 	}
 	
 	private URL buildUrl( String type, Date date ) throws MalformedURLException {
