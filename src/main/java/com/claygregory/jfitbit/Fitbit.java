@@ -10,7 +10,9 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -62,9 +64,13 @@ public class Fitbit {
 	
 	private static String GRAPH_BASE_URL = "http://www.fitbit.com/graph/getGraphData";
 	
+	private static String SLEEP_BASE_URL = "http://www.fitbit.com/sleep/";
+	
 	private static DateFormat RESULT_TIME_FORMAT = new SimpleDateFormat( "hh:mmaa" );
 	
 	private static DateFormat RESULT_DATE_FORMAT = new SimpleDateFormat( "EEE, MMM dd" );
+	
+	private static DateFormat URL_DATE_FORMAT = new SimpleDateFormat( "yyyy/M/dd" );
 	
 	private static DateFormat REQUEST_DATE_FORMAT = new SimpleDateFormat( "yyyy-M-dd" );
 	
@@ -188,8 +194,7 @@ public class Fitbit {
 	
 	/**
 	 * Provides sleep level for each minute in bed. Only available at 
-	 * {@link FitbitResolution#INTRADAY} resolution. Currently, this does not
-	 * handle multiple sleep sessions in a day.
+	 * {@link FitbitResolution#INTRADAY} resolution.
 	 *  
 	 * @param q
 	 * @return List of {@link SleepLevel}s for time in bed during range specified by query parameter
@@ -206,10 +211,25 @@ public class Fitbit {
 		}
 		
 		final List<SleepLevel> result = new ArrayList<SleepLevel>( );
-		this.execute( type, q, new ResponseHandler( ) {
+		final List<SleepLevel> dayBuffer = new ArrayList<SleepLevel>( );
+		this.executeSleep( type, q, new ResponseHandler( ) {
 			
 			@Override
 			protected void process( ResponseValue value, boolean first ) {
+				
+				if ( first && !dayBuffer.isEmpty( ) ) {
+					Date last = dayBuffer.get( dayBuffer.size( ) - 1 ).getTimestampAsDate( );
+					for ( SleepLevel s : dayBuffer ) {
+						Date real = s.getTimestampAsDate( );
+						real = DateUtil.setDate( real, DateUtil.getDate( last ) );
+						real = DateUtil.setMonth( real, DateUtil.getMonth( last ) );
+						real = DateUtil.setYear( real, DateUtil.getYear( last ) );
+						s.setTimestamp( real.getTime( ) );
+					}
+					result.addAll( dayBuffer );
+					dayBuffer.clear( );
+				}
+				
 				SleepLevel sl = new SleepLevel( );
 				sl.setLevel( Math.round( Float.parseFloat( value.value ) ) );
 				sl.setTimestamp( value.startTimestamp );
@@ -217,6 +237,19 @@ public class Fitbit {
 				result.add( sl );
 			}
 		} );
+		
+		if ( !dayBuffer.isEmpty( ) ) {
+			Date last = dayBuffer.get( dayBuffer.size( ) - 1 ).getTimestampAsDate( );
+			for ( SleepLevel s : dayBuffer ) {
+				Date real = s.getTimestampAsDate( );
+				real = DateUtil.setDate( real, DateUtil.getDate( last ) );
+				real = DateUtil.setMonth( real, DateUtil.getMonth( last ) );
+				real = DateUtil.setYear( real, DateUtil.getYear( last ) );
+				s.setTimestamp( real.getTime( ) );
+			}
+			result.addAll( dayBuffer );
+		}
+		
 		return filterResults( result, q );
 	}
 	
@@ -321,7 +354,7 @@ public class Fitbit {
 
 	private HttpClient createHttpClient( ) {
 		DefaultHttpClient httpClient = new DefaultHttpClient( );
-		
+
 		httpClient.getParams( ).setParameter( ClientPNames.COOKIE_POLICY, CookiePolicy.BROWSER_COMPATIBILITY );
 		httpClient.setRedirectStrategy( new DefaultRedirectStrategy( ) {
 			
@@ -357,15 +390,14 @@ public class Fitbit {
 			throw new FitbitExecutionException( e );
 		}
 		
-		Matcher m = Pattern.compile( "./user/([A-Z0-9]*).*?Public Profile" ).matcher( response );
+		Matcher m = Pattern.compile( "./user/([A-Z0-9]*)" ).matcher( response );
 		if ( !m.find( ) )
 			throw new FitbitAuthenticationException( );
 		
 		return m.group( 1 );
 	}
 	
-	private URL buildUrl( String type, Date date ) throws MalformedURLException {
-		
+	private URL buildUrl( String type, Date date, Map<String,String> customParams ) throws MalformedURLException {
 		URLBuilder builder = URLBuilder.create( GRAPH_BASE_URL );
 		builder.queryParam( "userId", this.userId );
 		
@@ -375,8 +407,14 @@ public class Fitbit {
 		builder.queryParam( "chart_type", "column2d" );
 		builder.queryParam( "period", "1d" );
 		builder.queryParam( "dateTo", REQUEST_DATE_FORMAT.format( date ) );
+		for ( String key : customParams.keySet( ) )
+			builder.queryParam( key, customParams.get( key ) );
 		
 		return builder.buildURL( );
+	}
+	
+	private URL buildUrl( String type, Date date ) throws MalformedURLException {
+		return this.buildUrl( type, date, null );
 	}
 	
 	private void execute( String type, FitbitQuery query, ResponseHandler handler ) {
@@ -386,6 +424,28 @@ public class Fitbit {
 				HttpGet get = new HttpGet( buildUrl( type, d ).toString( ) );
 				String result = EntityUtils.toString( this.httpClient.execute( get ).getEntity( ) ).trim( );
 				parseResult( d, result, handler );
+			} catch( IOException e ) {
+				throw new FitbitExecutionException( e );
+			}
+		}
+	}
+	
+	//special handler for sleep -- must first fetch page to get IDs.
+	private void executeSleep( String type, FitbitQuery query, ResponseHandler handler ) {
+		
+		for ( Date d : DateUtil.dateList( query.getMinimumTimestampAsDate( ), query.getMaximumTimestampAsDate( ) ) ) {
+			try {
+				HttpGet pageGet = new HttpGet( SLEEP_BASE_URL + URL_DATE_FORMAT.format( d ) );
+				String pageResult = EntityUtils.toString( this.httpClient.execute( pageGet ).getEntity( ) );
+				Matcher m = Pattern.compile( "sleepRecord\\.([0-9]+)" ).matcher( pageResult );
+				while ( m.find( ) ) {
+					String arg = m.group( 1 );
+					Map<String,String> params = new HashMap<String,String>( );
+					params.put( "arg", arg );
+					HttpGet get = new HttpGet( buildUrl( type, d, params ).toString( ) );
+					String result = EntityUtils.toString( this.httpClient.execute( get ).getEntity( ) ).trim( );
+					parseResult( d, result, handler );
+				}
 			} catch( IOException e ) {
 				throw new FitbitExecutionException( e );
 			}
