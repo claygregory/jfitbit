@@ -1,6 +1,6 @@
 #jFitbit
 
-jFitbit is an unofficial Java Fitbit client. While Fitbit provides an API for fetching daily totals, intraday resolution data is unavailable. Fortunately, the XML used to build the Flash-based graphs on the Fitbit.com site provides simple access to your data.
+jFitbit is an unofficial Java Fitbit client. While Fitbit provides an API for fetching daily totals, intraday resolution data is unavailable. However, the XML served for building the Flash-based graphs on the Fitbit.com site provides the interface to your data used in this client.
 
 This client currently supports fetching the following data at an intraday resolution:
  * Activity score on a 5-minute interval
