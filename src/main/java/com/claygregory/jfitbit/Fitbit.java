@@ -70,7 +70,7 @@ public class Fitbit {
 	
 	private static DateFormat RESULT_DATE_FORMAT = new SimpleDateFormat( "EEE, MMM dd" );
 	
-	private static DateFormat URL_DATE_FORMAT = new SimpleDateFormat( "yyyy/M/dd" );
+	private static DateFormat URL_DATE_FORMAT = new SimpleDateFormat( "yyyy/MM/dd" );
 	
 	private static DateFormat REQUEST_DATE_FORMAT = new SimpleDateFormat( "yyyy-M-dd" );
 	
@@ -407,8 +407,9 @@ public class Fitbit {
 		builder.queryParam( "chart_type", "column2d" );
 		builder.queryParam( "period", "1d" );
 		builder.queryParam( "dateTo", REQUEST_DATE_FORMAT.format( date ) );
-		for ( String key : customParams.keySet( ) )
-			builder.queryParam( key, customParams.get( key ) );
+		if ( customParams != null )
+			for ( String key : customParams.keySet( ) )
+				builder.queryParam( key, customParams.get( key ) );
 		
 		return builder.buildURL( );
 	}
