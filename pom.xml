@@ -5,7 +5,7 @@
 
 	<groupId>com.claygregory</groupId>
 	<artifactId>jfitbit</artifactId>
-	<version>0.1-SNAPSHOT</version>
+	<version>1.0</version>
 	<name>jfitbit</name>
 	<url>https://github.com/claygregory/jfitbit</url>
 
@@ -110,7 +110,7 @@
 		<dependency>
 			<groupId>com.claygregory</groupId>
 			<artifactId>cg-jcommons</artifactId>
-			<version>0.1-SNAPSHOT</version>
+			<version>0.2-SNAPSHOT</version>
 			<scope>compile</scope>
 		</dependency>
 	</dependencies>
