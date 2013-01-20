@@ -320,6 +320,7 @@ public class Fitbit {
 				result.add( sc );
 			}
 		} );
+	
 		return filterResults( result, q );
 	}
 	
@@ -424,7 +425,7 @@ public class Fitbit {
 	
 	private void execute( String type, FitbitQuery query, ResponseHandler handler ) {
 	
-		for ( Date d : DateUtil.dateList( query.getMinimumTimestampAsDate( ), query.getMaximumTimestampAsDate( ) ) ) {
+		for ( Date d : DateUtil.dateList( query.getMinimumTimestampAsDate( ), query.getMaximumTimestampAsDate( ), Calendar.DATE, 1, false ) ) {
 			try {
 				HttpGet get = new HttpGet( buildUrl( type, d ).toString( ) );
 				String result = EntityUtils.toString( this.httpClient.execute( get ).getEntity( ) ).trim( );
@@ -459,6 +460,10 @@ public class Fitbit {
 	
 	private static<T extends TimestampedEvent> List<T> filterResults( List<T> results, FitbitQuery query ) {
 		
+		//since Fitbit returns paged results by day, no need to filter locally
+		if ( query.getResolution( ) == FitbitResolution.DAILY )
+			return results;
+		
 		List<T> filteredResults = new ArrayList<T>( );
 		for ( T r : results )
 			if ( r.getTimestamp( ) >= query.getMinimumTimestamp( ) && r.getTimestamp( ) <= query.getMaximumTimestamp( ) )
@@ -474,7 +479,7 @@ public class Fitbit {
 	
 	private static long parseTime( Date requestedDate, String time ) throws ParseException {
 		long timeMs;
-		if ( time.contains( "am" ) || time.contains( "pm" ) )
+		if ( time.toLowerCase( ).contains( "am" ) || time.toLowerCase( ).contains( "pm" ) )
 			timeMs = TWELVE_HOUR_RESULT_TIME_FORMAT.parse( time ).getTime( );
 		else
 			timeMs = TWENTY_FOUR_HOUR_RESULT_TIME_FORMAT.parse( time ).getTime( );
