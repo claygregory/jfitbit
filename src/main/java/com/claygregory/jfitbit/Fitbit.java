@@ -12,6 +12,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
@@ -66,13 +67,15 @@ public class Fitbit {
 	
 	private static String SLEEP_BASE_URL = "http://www.fitbit.com/sleep/";
 	
-	private static DateFormat RESULT_TIME_FORMAT = new SimpleDateFormat( "hh:mmaa" );
+	private static DateFormat TWELVE_HOUR_RESULT_TIME_FORMAT = new SimpleDateFormat( "hh:mmaa", Locale.US );
 	
-	private static DateFormat RESULT_DATE_FORMAT = new SimpleDateFormat( "EEE, MMM dd" );
+	private static DateFormat TWENTY_FOUR_HOUR_RESULT_TIME_FORMAT = new SimpleDateFormat( "HH:mm", Locale.US );
 	
-	private static DateFormat URL_DATE_FORMAT = new SimpleDateFormat( "yyyy/MM/dd" );
+	private static DateFormat RESULT_DATE_FORMAT = new SimpleDateFormat( "EEE, MMM dd", Locale.US );
 	
-	private static DateFormat REQUEST_DATE_FORMAT = new SimpleDateFormat( "yyyy-M-dd" );
+	private static DateFormat URL_DATE_FORMAT = new SimpleDateFormat( "yyyy/MM/dd", Locale.US );
+	
+	private static DateFormat REQUEST_DATE_FORMAT = new SimpleDateFormat( "yyyy-M-dd", Locale.US );
 	
 	protected static class ResponseValue {
 		
@@ -95,7 +98,8 @@ public class Fitbit {
 	}
 	
 	static {
-		RESULT_TIME_FORMAT.setTimeZone( TimeZone.getTimeZone( "GMT" ) );
+		TWELVE_HOUR_RESULT_TIME_FORMAT.setTimeZone( TimeZone.getTimeZone( "GMT" ) );
+		TWENTY_FOUR_HOUR_RESULT_TIME_FORMAT.setTimeZone( TimeZone.getTimeZone( "GMT" ) );
 	}
 	
 	private HttpClient httpClient;
@@ -458,7 +462,7 @@ public class Fitbit {
 		List<T> filteredResults = new ArrayList<T>( );
 		for ( T r : results )
 			if ( r.getTimestamp( ) >= query.getMinimumTimestamp( ) && r.getTimestamp( ) <= query.getMaximumTimestamp( ) )
-				filteredResults.add(  r );
+				filteredResults.add( r );
 				
 		return filteredResults;
 	}
@@ -469,7 +473,13 @@ public class Fitbit {
 	}
 	
 	private static long parseTime( Date requestedDate, String time ) throws ParseException {
-		return RESULT_TIME_FORMAT.parse( time ).getTime( ) + DateUtil.floor( requestedDate, Calendar.DATE ).getTime( );
+		long timeMs;
+		if ( time.contains( "am" ) || time.contains( "pm" ) )
+			timeMs = TWELVE_HOUR_RESULT_TIME_FORMAT.parse( time ).getTime( );
+		else
+			timeMs = TWENTY_FOUR_HOUR_RESULT_TIME_FORMAT.parse( time ).getTime( );
+				
+		return timeMs + DateUtil.floor( requestedDate, Calendar.DATE ).getTime( );
 	}
 	
 	private static void parseResult( Date requestedDate, String result, ResponseHandler handler ) {
