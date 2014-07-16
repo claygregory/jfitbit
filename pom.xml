@@ -5,7 +5,7 @@
 
 	<groupId>com.claygregory</groupId>
 	<artifactId>jfitbit</artifactId>
-	<version>1.2</version>
+	<version>2.0-beta1</version>
 	<name>jfitbit</name>
 	<url>https://github.com/claygregory/jfitbit</url>
 
@@ -35,17 +35,6 @@
 
 	<build>
 		<plugins>
-			<plugin>
-				<groupId>com.github.github</groupId>
-				<artifactId>downloads-maven-plugin</artifactId>
-				<version>0.6</version>
-				<configuration>
-					<description>${project.name} ${project.version} release</description>
-					<override>true</override>
-					<includeAttached>true</includeAttached>
-					<server>github</server>
-				</configuration>
-			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -97,6 +86,11 @@
 
 	<dependencies>
 		<dependency>
+			<groupId>joda-time</groupId>
+			<artifactId>joda-time</artifactId>
+			<version>2.3</version>
+		</dependency>
+		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
 			<version>3.8.1</version>
@@ -105,13 +99,7 @@
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpclient</artifactId>
-			<version>4.2.1</version>
-		</dependency>
-		<dependency>
-			<groupId>com.claygregory</groupId>
-			<artifactId>cg-jcommons</artifactId>
-			<version>0.2-SNAPSHOT</version>
-			<scope>compile</scope>
+			<version>4.3.2</version>
 		</dependency>
 	</dependencies>
 </project>

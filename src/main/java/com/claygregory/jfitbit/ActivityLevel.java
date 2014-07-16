@@ -1,9 +1,6 @@
 package com.claygregory.jfitbit;
 
-import java.util.Date;
-
-import com.claygregory.common.data.Duration;
-import com.claygregory.common.data.TimestampedEvent;
+import org.joda.time.Duration;
 
 /**
  * 
@@ -12,15 +9,11 @@ import com.claygregory.common.data.TimestampedEvent;
  * @author Clay Gregory
  *
  */
-public class ActivityLevel implements TimestampedEvent {
+public class ActivityLevel extends FitbitInterval {
 
 	private Duration fairlyActive;
 	
-	private Duration intervalSize;
-	
 	private Duration lightlyActive;
-	
-	private long timestamp;
 	
 	private Duration veryActive;
 	
@@ -28,22 +21,8 @@ public class ActivityLevel implements TimestampedEvent {
 		return this.fairlyActive;
 	}
 
-	public Duration getIntervalSize( ) {
-		return this.intervalSize;
-	}
-
 	public Duration getLightlyActive( ) {
 		return this.lightlyActive;
-	}
-
-	@Override
-	public long getTimestamp( ) {
-		return this.timestamp;
-	}
-
-	@Override
-	public Date getTimestampAsDate( ) {
-		return new Date( this.timestamp );
 	}
 
 	public Duration getVeryActive( ) {
@@ -54,16 +33,8 @@ public class ActivityLevel implements TimestampedEvent {
 		this.fairlyActive = fairlyActive;
 	}
 
-	public void setIntervalSize( Duration intervalSize ) {
-		this.intervalSize = intervalSize;
-	}
-
 	public void setLightlyActive( Duration lightlyActive ) {
 		this.lightlyActive = lightlyActive;
-	}
-
-	public void setTimestamp( long timestamp ) {
-		this.timestamp = timestamp;
 	}
 
 	public void setVeryActive( Duration veryActive ) {

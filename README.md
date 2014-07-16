@@ -17,20 +17,19 @@ And the following are also available at a daily resolution:
 
 ##Example Usage
 ```
-Fitbit fb = new Fitbit( "fitbit-email", "fitbit-password" );
+Fitbit fb = Fitbit.create( "fitbit-email", "fitbit-password" );
   	
 FitbitQuery fbQuery = FitbitQuery.create( )
-  .minimumTimestamp( startDate )
-  .maximumTimestamp( endDate )
-  .resolution( FitbitResolution.INTRADAY );
+  .from( DateTime.now( ).minusDays( 1 ) )
+  .toNow( );
 		
-for ( StepCount al : fb.stepCount( fbQuery ) )
-  System.out.println( al.getTimestampAsDate( ) + " " + al.getSteps( ) );
+for ( StepCount s : fb.stepCount( fbQuery ) )
+  System.out.println( s.getInterval( ).getStart( ) + " " + s.getSteps( ) );
 ```
 
 ##Dependencies
- * [Apache HttpClient 4.2.1](http://hc.apache.org/) (Note: 4.2 release has a problematic bug, be sure to get 4.2.1)
- * [cg-jcommons](https://github.com/claygregory/cg-jcommons)
+ * [Apache HttpClient 4.3.2](http://hc.apache.org/)
+ * [Joda-Time 2.3](http://www.joda.org/joda-time/)
 
 ##Downloads
 
