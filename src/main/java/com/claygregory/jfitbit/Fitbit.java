@@ -65,6 +65,8 @@ public class Fitbit {
 	
 	private static String GRAPH_BASE_URL = "http://www.fitbit.com/graph/getGraphData";
 	
+	private static String I18N_URL = "https://www.fitbit.com/i18n/switch";
+	
 	private static String LOGIN_URL = "https://www.fitbit.com/login";
 
 	private static String SLEEP_BASE_URL = "http://www.fitbit.com/sleep/";
@@ -114,6 +116,8 @@ public class Fitbit {
 	private HttpClient httpClient;
 	
 	private String userId;
+	
+	private String userLocale;
 	
 	/**
 	 * Creates a new Fitbit instance
@@ -253,6 +257,27 @@ public class Fitbit {
 	}
 	
 	/**
+	 * Workaround for users with Fitbit user profile set to other other than en_US. Due
+	 * to the many variations in responses, this client is only compatible handling
+	 * en_US values.
+	 * 
+	 * @see Fitbit#restoreLocale
+	 * 
+	 * @return true if successful
+	 */
+	public boolean enableLocaleOverride( ) {
+		try {
+			URIBuilder builder = new URIBuilder( I18N_URL );
+			builder.addParameter( "locale", "en_US" );
+			HttpGet get = new HttpGet( builder.build( ).toURL( ).toString( ) );
+			String result = EntityUtils.toString( this.httpClient( ).execute( get ).getEntity( ) ).trim( );
+			return result.contains("Succeeded" );
+		} catch( Exception e ) {
+			throw new FitbitExecutionException( e );
+		}
+	}
+	
+	/**
 	 * Provides floor counts at either daily or intraday resolutions.
 	 * 
 	 * @param q
@@ -282,6 +307,31 @@ public class Fitbit {
 			}
 		} );
 		return filterResults( result, q );
+	}
+	
+	/**
+	 * Retore user location to original value discovered during authentication. This is used to 
+	 * undo the override enabled in {@link #enableLocaleOverride()}
+	 * 
+	 * @see #enableLocaleOverride()
+	 * @return true if successful
+	 */
+	public boolean restoreUserLocale( ) {
+		try {
+			
+			if ( this.userLocale != null ) {
+				URIBuilder builder = new URIBuilder( I18N_URL );
+				builder.addParameter( "locale", this.userLocale );
+				HttpGet get = new HttpGet( builder.build( ).toURL( ).toString( ) );
+				String result = EntityUtils.toString( this.httpClient( ).execute( get ).getEntity( ) ).trim( );
+				return result.contains("Succeeded" );
+			}
+			
+			return false;
+			
+		} catch( Exception e ) {
+			throw new FitbitExecutionException( e );
+		}
 	}
 	
 	/**
@@ -497,7 +547,12 @@ public class Fitbit {
 			
 			loginPost.setEntity( formEntity );
 			
-			response = EntityUtils.toString( this.httpClient.execute( loginPost ).getEntity( ) );
+			HttpResponse httpResponse = this.httpClient.execute( loginPost );
+			response = EntityUtils.toString( httpResponse.getEntity( ) );
+			
+			this.userLocale = httpResponse.getLastHeader( "Content-Language" ).getValue( );
+			if ( this.userLocale != null )
+				this.userLocale = this.userLocale.replace("-", "_" );
 			
 		} catch( Exception e ) {
 			throw new FitbitExecutionException( e );
