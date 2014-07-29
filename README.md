@@ -37,12 +37,12 @@ difficulty with their locale may temporarily switch their account to en_US as fo
 Fitbit fb = Fitbit.create( "fitbit-email", "fitbit-password" );
 
 // Override locale to be en_US for compatibility
-fb.enableLocaleOverride( )
+fb.enableLocaleOverride( );
 
 //do download and processing
 
 // Restore original user locale upon completion
-fb.restoreUserLocale( )
+fb.restoreUserLocale( );
 ```
 
 Another issue can result from discrepancies between the local system timezone and the timezone selected in the Fitbit profile on the web. As
