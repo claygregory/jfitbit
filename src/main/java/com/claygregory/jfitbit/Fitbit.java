@@ -310,7 +310,7 @@ public class Fitbit {
 	}
 	
 	/**
-	 * Retore user location to original value discovered during authentication. This is used to 
+	 * Restore user location to original value discovered during authentication. This is used to 
 	 * undo the override enabled in {@link #enableLocaleOverride()}
 	 * 
 	 * @see #enableLocaleOverride()
