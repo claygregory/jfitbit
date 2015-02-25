@@ -536,7 +536,8 @@ public class Fitbit {
 
 		String response = null;
 		try {
-			EntityUtils.consume( this.httpClient.execute( new HttpGet( LOGIN_URL ) ).getEntity( ) );
+			//go ahead and consume it – if on Android, we don't have #consume on EntityUtils
+			EntityUtils.toString( this.httpClient.execute( new HttpGet( LOGIN_URL ) ).getEntity( ) );
 			
 			HttpPost loginPost = new HttpPost( LOGIN_URL );
 			List<NameValuePair> parameters = new ArrayList<NameValuePair>( );
