@@ -59,6 +59,10 @@ This project is built against Apache HttpClient 4.3.x. Since the HttpClient pack
 compatibility is an issue. This project can be used on Android, however, using the [HttpClient for Android project](https://hc.apache.org/httpcomponents-client-4.3.x/android-port.html) 
 in place of the above Apache HttpClient dependency.
 
+##License
+
+See the [LICENSE](LICENSE.md) file for rights and limitations under the terms of the MIT license.
+
 ##Downloads
 
 Source is hosted at the [jFitbit GitHub repository](https://github.com/claygregory/jfitbit).
