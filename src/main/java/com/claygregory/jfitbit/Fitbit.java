@@ -460,9 +460,10 @@ public class Fitbit {
 		if ( query.atResolution( ) == FitbitResolution.DAILY )
 			return results;
 		
+		Interval queryInterval = new Interval( query.from( ), query.to( ) );
 		List<T> filteredResults = new ArrayList<T>( );
 		for ( T r : results )
-			if ( r.getInterval( ).getStart( ).isAfter( query.from( ) ) && r.getInterval( ).getStart( ).isBefore( query.to( ) ) )
+			if ( queryInterval.contains( r.getInterval( ).getStart( ) ) )
 				filteredResults.add( r );
 				
 		return filteredResults;
@@ -613,7 +614,8 @@ public class Fitbit {
 	protected void executeSleep( String type, FitbitQuery query, ResponseHandler handler ) {
 		
 		DateTime date = query.from( ).withTimeAtStartOfDay( );
-		while ( date.isBefore( query.to( ) ) ) {
+		//advance a day because Fitbit reports sleep sessions are associated to the date the session ends, not begins.
+		while ( date.isBefore( query.to( ).plusDays( 1 ) ) ) {
 			for ( String session : getSleepSessions( date.toLocalDate( ) ) ) {
 				Map<String,String> params = new HashMap<String,String>( );
 				params.put( "arg", session );
