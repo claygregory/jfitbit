@@ -16,12 +16,10 @@ public abstract class FitbitInterval {
 		this.interval = interval;
 	}
 	
-	@Deprecated
 	public long getTimestamp( ) {
 		return this.interval.getStartMillis( );
 	}
 
-	@Deprecated
 	public Date getTimestampAsDate( ) {
 		return this.interval.getStart( ).toDate( );
 	}

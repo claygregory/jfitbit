@@ -1,26 +1,16 @@
 package com.claygregory.jfitbit;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathFactory;
 
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
@@ -39,20 +29,21 @@ import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 import org.joda.time.DateTime;
-import org.joda.time.Duration;
 import org.joda.time.Interval;
 import org.joda.time.LocalDate;
+import org.joda.time.Minutes;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.DateTimeFormatterBuilder;
-import org.joda.time.format.DateTimeParser;
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
+
+import com.claygregory.jfitbit.SleepSession.SleepLevel;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 /**
  * 
- * Unofficial Fitbit client for retrieving intraday Fitbit data as displayed in dashboards on Fitbit.com.
+ * Unofficial Fitbit client for retrieving intraday Fitbit data as presented on Fitbit.com.
  * 
  * <p>Note: Fitbit does not provide timezone information on timestamps,
  * so it's assumed the timezone preference set in the Fitbit user profile matches timezone
@@ -63,61 +54,119 @@ import org.w3c.dom.NodeList;
  */
 public class Fitbit {
 	
-	private static String GRAPH_BASE_URL = "http://www.fitbit.com/graph/getGraphData";
-	
-	private static String I18N_URL = "https://www.fitbit.com/i18n/switch";
-	
-	private static String LOGIN_URL = "https://www.fitbit.com/login";
-
-	private static String SLEEP_BASE_URL = "http://www.fitbit.com/sleep/";
-	
-	private static DateTimeFormatter RESULT_DATE_FORMAT = DateTimeFormat.forPattern( "EEE, MMM dd" ).withLocale( Locale.US );
-
-	private static DateTimeFormatter REQUEST_DATE_FORMAT = DateTimeFormat.forPattern( "yyyy-M-dd" ).withLocale( Locale.US );
-	
-	private static DateTimeFormatter TIME_FORMAT = new DateTimeFormatterBuilder( ).append( null, new DateTimeParser[ ] {
-	                                                   DateTimeFormat.forPattern( "hh:mmaa" ).withLocale( Locale.US ).getParser( ),
-	                                                   DateTimeFormat.forPattern( "HH:mm" ).withLocale( Locale.US ).getParser( )
-	                                               } )
-	                                               .toFormatter( );
-	
-	private static DateTimeFormatter URL_DATE_FORMAT = DateTimeFormat.forPattern(  "yyyy/MM/dd" ).withLocale( Locale.US );
-
-	protected static abstract class ResponseHandler {
+	protected static abstract class ActivityResponseHandler extends ResponseHandler {
 		
 		/**
-		* Fired on start of results on date
-		* @param date of results
-		*/
-		protected void start( LocalDate date ) {
-		//optional to implement, default noop
-		}
-		
-		/**
-		* Receives entry of results from response
+		* Receives activity data points from response
 		* 
 		* @param interval parsed from description
-		* @param value value of result entry
-		* @param description description of result entry (usually including unparsed date/time)
+		* @param dataPoint JSON data point at interval
 		*/
-		protected void process( Interval interval, String value, String description ) {
+		protected void processDataPoint( Interval interval, JsonObject dataPoint ) {
 		//optional to implement, default noop
 		}
+		
+		protected void processResponse( String json ) {
+			
+			JsonParser parser = new JsonParser( );
+			
+			JsonArray dataPoints = parser.parse( json ).getAsJsonObject( )
+				.get( "graph" ).getAsJsonObject( )
+				.get( "dataSets" ).getAsJsonObject( )
+				.get( "activity" ).getAsJsonObject( )
+				.get( "dataPoints" ).getAsJsonArray( );
+			
+			int intervalSize = computeIntervalSize( dataPoints );
 
-		/**
-		* Fired on completion of results on date
-		* @param date of results
-		*/
-		protected void end( LocalDate date ) {
-		//optional to implement, default noop
+			for ( JsonElement dataPoint : dataPoints ) {
+				
+				JsonObject dataPointObject = dataPoint.getAsJsonObject( );
+				String dateTime = dataPointObject.get( "dateTime" ).getAsString( );
+				
+				DateTime dt = DATE_TIME_FORMAT.parseDateTime( dateTime );
+				Interval interval = new Interval( dt, dt.plusMinutes( intervalSize ).minusSeconds( 1 ) );
+				this.processDataPoint( interval, dataPointObject );
+			}
+		}
+		
+		private int computeIntervalSize( JsonArray dataPoints ) {
+			
+			DateTime previousDateTime = null;
+			int intervalSum = 0;
+			float intervalCount = 0;
+			for ( JsonElement dataPoint : dataPoints ) {
+
+				String dateTime = dataPoint
+					.getAsJsonObject( )
+					.get( "dateTime" )
+					.getAsString( );
+				
+				DateTime dt = DATE_TIME_FORMAT.parseDateTime( dateTime );
+				if ( previousDateTime != null ) {
+					intervalCount++;
+					intervalSum += Minutes.minutesBetween( previousDateTime, dt ).getMinutes( );
+				}
+				previousDateTime = dt;
+			}
+			
+			return intervalCount > 0 ? Math.round( intervalSum / intervalCount ) : 0;
 		}
 	}
 	
-	private HttpClient httpClient;
+	protected static class WeightResponseHandler extends ResponseHandler {
+		
+		List<Weight> weights = new ArrayList<Weight>( );
+		
+		protected void processResponse( String json ) {
+			
+			JsonParser parser = new JsonParser( );
+			
+			JsonArray dataPoints = parser.parse( json ).getAsJsonObject( )
+				.get( "graph" ).getAsJsonObject( )
+				.get( "dataSets" ).getAsJsonObject( )
+				.get( "weight" ).getAsJsonObject( )
+				.get( "dataPoints" ).getAsJsonArray( );
+			
+			for ( JsonElement dataPoint : dataPoints ) {
+
+				JsonObject dataPointObject = dataPoint.getAsJsonObject( );
+				
+				Weight w = new Weight( );
+				w.setDateTime( DATE_TIME_FORMAT.parseDateTime(
+					dataPointObject.get( "dateTime" ).getAsString( )
+				) );
+				w.setValue( dataPointObject.get( "value" ).getAsFloat( ) );
+				
+				weights.add( w );
+			}
+		}
+		
+		public List<Weight> getWeights( ) {
+			return this.weights;
+		}
+	}
 	
-	private String userId;
+	protected static abstract class ResponseHandler {
+		
+		protected abstract void processResponse( String json );
+
+	}
 	
-	private String userLocale;
+	private static final String AJAX_API_URL = "https://www.fitbit.com/ajaxapi";
+	
+	private static final String GRAPH_BASE_URL = "http://www.fitbit.com/graph/getNewGraphData";
+
+	private static final String I18N_URL = "https://www.fitbit.com/i18n/switch";
+	
+	private static final String LOGIN_URL = "https://www.fitbit.com/login";
+	
+	private static final String SLEEP_BASE_URL = "http://www.fitbit.com/sleep/";
+	
+	private static final DateTimeFormatter DATE_FORMAT = DateTimeFormat.forPattern( "yyyy-M-dd" ).withLocale( Locale.US );
+
+	private static final DateTimeFormatter DATE_TIME_FORMAT =  DateTimeFormat.forPattern( "yyyy-M-dd HH:mm:ss" ).withLocale( Locale.US );
+	
+	private static final DateTimeFormatter URL_DATE_FORMAT = DateTimeFormat.forPattern(  "yyyy/MM/dd" ).withLocale( Locale.US );
 	
 	/**
 	 * Creates a new Fitbit instance
@@ -131,6 +180,25 @@ public class Fitbit {
 		return new Fitbit( email, password );
 	}
 	
+	protected static HttpClient createHttpClient( ) {
+		return HttpClientBuilder.create( )
+			.setRedirectStrategy( new DefaultRedirectStrategy( ) {
+				@Override
+				public boolean isRedirected( HttpRequest request, HttpResponse response, HttpContext context ) throws ProtocolException {
+					int responseCode = response.getStatusLine( ).getStatusCode( );
+					return super.isRedirected( request, response, context ) || responseCode == 301 || responseCode == 302;
+				}
+			} )
+			.setDefaultRequestConfig( RequestConfig.custom( ).setCookieSpec( CookieSpecs.BROWSER_COMPATIBILITY ).build( ) )
+			.build( );
+	}
+	
+	private HttpClient httpClient;
+	
+	private String userId;
+	
+	private String userLocale;
+	
 	/**
 	 * Constructor attempts to authenticate based on provided credentials. If it fails,
 	 * an authentication exception is thrown.
@@ -142,118 +210,6 @@ public class Fitbit {
 	public Fitbit( String email, String password ) throws FitbitAuthenticationException {
 		this.httpClient = createHttpClient( );
 		this.userId = authenticate( email, password );
-	}
-	
-	/**
-	 * Provides activity level breakdown of the day. Only 
-	 * available at {@link FitbitResolution#DAILY} resolution.
-	 *  
-	 * @param q
-	 * @return List of {@link ActivityLevel}s for time range specified by query
-	 */
-	public List<ActivityLevel> activityLevel( FitbitQuery q ) {
-		
-		String type = "";
-		switch ( q.atResolution( ) ) {
-			case INTRADAY:
-				throw new IllegalArgumentException( );
-			case DAILY:
-				type = "minutesActive";
-				break;
-		}
-		
-		final List<ActivityLevel> result = new ArrayList<ActivityLevel>( );
-		this.execute( type, q, new ResponseHandler( ) {
-			
-			protected ActivityLevel level;
-			
-			@Override
-			protected void start( LocalDate date ) {
-				this.level = new ActivityLevel( );
-				this.level.setInterval( new Interval( date.toDateTimeAtStartOfDay( ), date.toDateTimeAtStartOfDay( ).plusDays( 1 ).withTimeAtStartOfDay( ) ) );
-			}
-			
-			@Override
-			protected void process( Interval interval, String value, String description ) {
-				Duration d = Duration.millis( ( long ) Math.round( Float.parseFloat( value ) * 60 * 60 * 1000 ) );
-				if ( description.contains( "lightly" ) )
-					this.level.setLightlyActive( d );
-				else if ( description.contains( "fairly" ) )
-					this.level.setFairlyActive( d );
-				else if ( description.contains( "very" ) )
-					this.level.setVeryActive( d );
-			}
-			
-			@Override
-			protected void end( LocalDate date ) {
-				result.add( this.level );
-			}
-		} );
-		return filterResults( result, q );
-	}
-
-	/**
-	 * Provides activity score breakdown at either daily or intraday resolution.
-	 *  
-	 * @param q
-	 * @return List of {@link ActivityScore}s for time range specified by query
-	 */
-	public List<ActivityScore> activityScore( FitbitQuery q ) {
-		
-		String type = "";
-		switch ( q.atResolution( ) ) {
-			case INTRADAY:
-				type = "intradayActiveScore";
-				break;
-			case DAILY:
-				type = "activeScore";
-				break;
-		}
-		
-		final List<ActivityScore> result = new ArrayList<ActivityScore>( );
-		this.execute( type, q, new ResponseHandler( ) {
-			
-			@Override
-			protected void process( Interval interval, String value, String description ) {
-				ActivityScore as = new ActivityScore( );
-				as.setScore( Math.round( Float.parseFloat( value ) ) );
-				as.setInterval( interval );
-				result.add( as );
-			}
-		} );
-		return filterResults( result, q );
-	}
-	
-	/**
-	 * Provides calories consumed for the day. Only 
-	 * available at {@link FitbitResolution#DAILY} resolution.
-	 * 
-	 * @param q
-	 * @return List of {@link CalorieCount}s for time range specified by query
-	 */
-	public List<CalorieCount> calorieCount( FitbitQuery q ) {
-		
-		String type = "";
-		switch ( q.atResolution( ) ) {
-			case INTRADAY:
-				throw new IllegalArgumentException( );
-			case DAILY:
-				type = "caloriesConsumed";
-				break;
-		}
-		
-		final List<CalorieCount> result = new ArrayList<CalorieCount>( );
-		this.execute( type, q, new ResponseHandler( ) {
-			
-			@Override
-			protected void process( Interval interval, String value, String description ) {
-				CalorieCount cc = new CalorieCount( );
-				cc.setCalories( Math.round( Float.parseFloat( value ) ) );
-				cc.setInterval( interval );
-				result.add( cc );
-			}
-		} );
-		return filterResults( result, q );
 	}
 	
 	/**
@@ -270,7 +226,7 @@ public class Fitbit {
 			URIBuilder builder = new URIBuilder( I18N_URL );
 			builder.addParameter( "locale", "en_US" );
 			HttpGet get = new HttpGet( builder.build( ).toURL( ).toString( ) );
-			String result = EntityUtils.toString( this.httpClient( ).execute( get ).getEntity( ) ).trim( );
+			String result = EntityUtils.toString( this.getHttpClient( ).execute( get ).getEntity( ) ).trim( );
 			return result.contains("Succeeded" );
 		} catch( Exception e ) {
 			throw new FitbitExecutionException( e );
@@ -278,35 +234,194 @@ public class Fitbit {
 	}
 	
 	/**
-	 * Provides floor counts at either daily or intraday resolutions.
+	 * Provides intraday resolution calories burned on the specified date.
 	 * 
-	 * @param q
-	 * @return List of {@link FloorCount}s for time range specified by query
+	 * @param date of activity logs
+	 * @return List of {@link CalorieBurn}s for date specified
 	 */
-	public List<FloorCount> floorCount( FitbitQuery q ) {
+	public List<CalorieBurn> getCaloriesBurned( LocalDate date ) {
 		
-		String type = "";
-		switch ( q.atResolution( ) ) {
-			case INTRADAY:
-				type = "intradayAltitude";
-				break;
-			case DAILY:
-				type = "altitude";
-				break;
-		}
-		
-		final List<FloorCount> result = new ArrayList<FloorCount>( );
-		this.execute( type, q, new ResponseHandler( ) {
+		final List<CalorieBurn> result = new ArrayList<CalorieBurn>( );
+		this.getGraphData( "intradayCaloriesBurned", date, null, new ActivityResponseHandler( ) {
 			
 			@Override
-			protected void process( Interval interval, String value, String description ) {
+			protected void processDataPoint( Interval interval, JsonObject dataPoint ) {
+				CalorieBurn cb = new CalorieBurn( );
+				cb.setValue( dataPoint.get( "value" ).getAsInt( ) );
+				cb.setInterval( interval );
+				cb.setActivityLevel( dataPoint.get( "activityLevel" ).getAsString( ) );
+				result.add( cb );
+			}
+		} );
+		return result;
+	}
+	
+	/**
+	 * Provides intraday resolution floors climbed on the specified date.
+	 * 
+	 * @param date of activity logs
+	 * @return List of {@link FloorCount}s for specified date
+	 */
+	public List<FloorCount> getFloorCount( LocalDate date ) {
+		
+		
+		final List<FloorCount> result = new ArrayList<FloorCount>( );
+		this.getGraphData( "intradayFloors", date, null, new ActivityResponseHandler( ) {
+			
+			@Override
+			protected void processDataPoint( Interval interval, JsonObject dataPoint ) {
 				FloorCount fc = new FloorCount( );
-				fc.setFloors( Math.round( Float.parseFloat( value ) ) );
+				fc.setValue( dataPoint.get( "value" ).getAsInt( ) );
 				fc.setInterval( interval );
 				result.add( fc );
 			}
 		} );
-		return filterResults( result, q );
+		return result;
+	}
+	
+	/**
+	 * Provides sleep level for time spent in bed. Sleep sessions
+	 * are associated with the day session ends, not begins.
+	 *  
+	 * @param date of activity logs
+	 * @return List of {@link SleepSession}s for date specified
+	 */
+	public List<SleepSession> getSleepSessions( LocalDate date ) {
+		
+		final List<SleepSession> result = new ArrayList<SleepSession>( );
+		for ( String sessionId : getSleepSessionIds( date ) ) {
+			
+			SleepSession session = new SleepSession( );
+			final List<SleepLevel> levels = new ArrayList<SleepLevel>( );
+			session.setSleepLevels( levels );
+			
+			getGraphData( "intradaySleep", date, Collections.singletonMap( "arg", sessionId ), new ActivityResponseHandler( ) {
+				@Override
+				protected void processDataPoint( Interval interval, JsonObject dataPoint ) {
+					SleepLevel sl = new SleepLevel( );
+					sl.setValue( dataPoint.get( "value" ).getAsInt( ) );
+					sl.setInterval( interval );
+					levels.add( sl );
+				}
+			} );
+			
+			if ( !levels.isEmpty( ) ) {
+				session.setInterval(
+					new Interval(
+						levels.get( 0 ).getInterval( ).getStart( ),
+						levels.get( levels.size( ) - 1 ).getInterval( ).getEnd( )
+					) 
+				);
+			}
+			
+			result.add( session );
+		}
+		
+		return result;
+	}
+	
+	/**
+	 * Provides intraday resolution steps taken on the specified date.
+	 * 
+	 * @param date of activity logs
+	 * @return List of {@link StepCount}s for date specified
+	 */
+	public List<StepCount> getStepCount( LocalDate date ) {
+		
+		final List<StepCount> result = new ArrayList<StepCount>( );
+		this.getGraphData( "intradaySteps", date, null, new ActivityResponseHandler( ) {
+			@Override
+			protected void processDataPoint( Interval interval, JsonObject dataPoint ) {
+				StepCount sc = new StepCount( );
+				sc.setValue( dataPoint.get( "value" ).getAsInt( ) );
+				sc.setInterval( interval );
+				result.add( sc );
+			}
+		} );
+	
+		return result;
+	}
+	
+	/**
+	 * Provides records weight over the provided time interval
+	 * 
+	 * @param from date of weight interval start
+	 * @param to date of weight interval end
+	 * @return List of {@link Weight}s for interval specified
+	 */
+	public List<Weight> getWeights( LocalDate from, LocalDate to ) {
+		
+		WeightResponseHandler responseHandler = new WeightResponseHandler( );
+		this.getGraphData( "weight", from, from, null, responseHandler );
+	
+		return responseHandler.getWeights( );
+	}
+
+	/**
+	 * Provides access to tracking device status/info associated with Fitbit account
+	 * 
+	 * @return FitbitTracker linked to user account
+	 */
+	public FitbitTracker getTracker( ) {
+		
+		try {
+			
+			JsonArray serviceCalls = new JsonArray( );
+			JsonObject getDevicesCall = new JsonObject( );
+			getDevicesCall.addProperty( "name", "device" );
+			getDevicesCall.addProperty( "method", "getOwnerDevices" );
+			serviceCalls.add( getDevicesCall );
+			
+			JsonObject request = new JsonObject( );
+			request.add( "serviceCalls", serviceCalls );
+			
+			URIBuilder builder = new URIBuilder( AJAX_API_URL );
+			
+			builder.addParameter( "request", request.toString( ) );
+			HttpGet post = new HttpGet( builder.build( ).toURL( ).toString( ) );
+			HttpResponse response = this.getHttpClient( ).execute( post );
+			if ( response.getStatusLine( ).getStatusCode( ) != 200 )
+				throw new FitbitExecutionException( );
+			
+			String result = EntityUtils.toString( response.getEntity( ) ).trim( );
+			
+			JsonParser parser = new JsonParser( );
+			JsonArray jsonResult = parser.parse( result ).getAsJsonObject( )
+				.get( "ajaxResponse" ).getAsJsonObject( )
+				.get( "newResult" ).getAsJsonObject( )
+				.get( "getOwnerDevices" ).getAsJsonObject( )
+				.get( "result" ).getAsJsonArray( );
+			
+			if ( jsonResult.size( ) > 0 ) {
+				
+				JsonObject trackerJson = jsonResult.get( 0 ).getAsJsonObject( );
+				
+				FitbitTracker tracker = new FitbitTracker( );
+				tracker.setBattery( trackerJson.get( "battery" ).getAsString( ) );
+				tracker.setId( trackerJson.get( "id" ).getAsString( ) );
+				tracker.setLastSync( new DateTime( trackerJson.get( "lastSyncTime" ).getAsLong( ) ) );
+				tracker.setProductName( trackerJson.get( "productName" ).getAsString( ) );
+				tracker.setType( trackerJson.get( "type" ).getAsString( ) );
+				return tracker;
+				
+			} else {
+				return null;
+			}
+			
+		} catch( IOException e ) {
+			throw new FitbitExecutionException( e );
+		} catch( URISyntaxException e ) {
+			throw new FitbitExecutionException( e );
+		}
+	}
+	
+	/**
+	 * Each Fitbit user has a 6 digit unique user ID separate from their email address
+	 * 
+	 * @return unique Fitbit user ID authenticated for client
+	 */
+	public String getUserId( ) {
+		return this.userId;
 	}
 	
 	/**
@@ -323,7 +438,7 @@ public class Fitbit {
 				URIBuilder builder = new URIBuilder( I18N_URL );
 				builder.addParameter( "locale", this.userLocale );
 				HttpGet get = new HttpGet( builder.build( ).toURL( ).toString( ) );
-				String result = EntityUtils.toString( this.httpClient( ).execute( get ).getEntity( ) ).trim( );
+				String result = EntityUtils.toString( this.getHttpClient( ).execute( get ).getEntity( ) ).trim( );
 				return result.contains("Succeeded" );
 			}
 			
@@ -334,211 +449,12 @@ public class Fitbit {
 		}
 	}
 	
-	/**
-	 * Provides sleep level for time spent in bed. Only available at 
-	 * {@link FitbitResolution#INTRADAY} resolution.
-	 *  
-	 * @param q
-	 * @return List of {@link SleepLevel}s for time in bed during range specified by query
-	 */
-	public List<SleepLevel> sleepLevel( FitbitQuery q ) {
-		
-		String type = "";
-		switch ( q.atResolution( ) ) {
-			case INTRADAY:
-				type = "intradaySleep";
-				break;
-			case DAILY:
-				throw new IllegalArgumentException( );
-		}
-		
-		final List<SleepLevel> result = new ArrayList<SleepLevel>( );
-		this.executeSleep( type, q, new ResponseHandler( ) {
-			
-			private List<SleepLevel> dayBuffer = new ArrayList<SleepLevel>( );
-			
-			@Override
-			protected void process( Interval interval, String value, String description ) {		
-				SleepLevel sl = new SleepLevel( );
-				sl.setLevel( Math.round( Float.parseFloat( value ) ) );
-				sl.setInterval( interval );
-				this.dayBuffer.add( sl );
-			}
-			
-			@Override
-			protected void end( LocalDate date ) {
-				if ( !this.dayBuffer.isEmpty( ) ) {
-					DateTime end = this.dayBuffer.get( this.dayBuffer.size( ) - 1 ).getInterval( ).getStart( );
-					for ( SleepLevel s : this.dayBuffer ) {
-						if ( s.getInterval( ).isAfter( end ) )
-							s.setInterval( new Interval( s.getInterval( ).getStart( ).minusDays( 1 ), s.getInterval( ).getEnd( ).minusDays( 1 ) ) );
-					}
-				}
-				
-				result.addAll( this.dayBuffer );
-				
-				this.dayBuffer.clear( );
-			}
-		} );
-		
-		Collections.sort( result, createIntervalComparator( ) );
-		return filterResults( result, q );
-	}
-	
-	/**
-	 * Provides step counts at either daily or intraday resolutions.
-	 * 
-	 * @param q
-	 * @return List of {@link StepCount}s for time range specified by query
-	 */
-	public List<StepCount> stepCount( FitbitQuery q ) {
-		
-		String type = "";
-		switch ( q.atResolution( ) ) {
-			case INTRADAY:
-				type = "intradaySteps";
-				break;
-			case DAILY:
-				type = "stepsTaken";
-				break;
-		}
-		
-		final List<StepCount> result = new ArrayList<StepCount>( );
-		this.execute( type, q, new ResponseHandler( ) {
-			
-			@Override
-			protected void process( Interval interval, String value, String description ) {
-				StepCount sc = new StepCount( );
-				sc.setSteps( Math.round( Float.parseFloat( value ) ) );
-				sc.setInterval( interval );
-				result.add( sc );
-			}
-		} );
-	
-		return filterResults( result, q );
-	}
-	
-	/**
-	 * Each Fitbit user has a 6 digit unique user ID separate from their email address
-	 * 
-	 * @return unique Fitbit user ID authenticated for client
-	 */
-	public String userId( ) {
-		return this.userId;
-	}
-
-	protected static HttpClient createHttpClient( ) {
-		return HttpClientBuilder.create( )
-			.setRedirectStrategy( new DefaultRedirectStrategy( ) {
-				@Override
-				public boolean isRedirected( HttpRequest request, HttpResponse response, HttpContext context ) throws ProtocolException {
-					int responseCode = response.getStatusLine( ).getStatusCode( );
-					return super.isRedirected( request, response, context ) || responseCode == 301 || responseCode == 302;
-				}
-			} )
-			.setDefaultRequestConfig( RequestConfig.custom( ).setCookieSpec( CookieSpecs.BROWSER_COMPATIBILITY ).build( ) )
-			.build( );
-	}
-	
-	protected static Comparator<FitbitInterval> createIntervalComparator( ) {
-		return new Comparator<FitbitInterval>( ) {
-			@Override
-			public int compare( FitbitInterval o1, FitbitInterval o2 ) {
-				if ( o1.getInterval( ).isBefore( o2.getInterval( ) ) )
-					return -1;
-				else if ( o1.getInterval( ).isAfter( o2.getInterval( ) ) )
-					return 1;
-				else
-					return 0;
-			}
-		};
-	}
-	
-	protected static<T extends FitbitInterval> List<T> filterResults( List<T> results, FitbitQuery query ) {
-		
-		//since Fitbit returns paged results by day, no need to filter locally
-		if ( query.atResolution( ) == FitbitResolution.DAILY )
-			return results;
-		
-		Interval queryInterval = new Interval( query.from( ), query.to( ) );
-		List<T> filteredResults = new ArrayList<T>( );
-		for ( T r : results )
-			if ( queryInterval.contains( r.getInterval( ).getStart( ) ) )
-				filteredResults.add( r );
-				
-		return filteredResults;
-	}
-	
-	protected static LocalDate parseDate( LocalDate requestedDate, String date ) throws ParseException {
-		LocalDate parsedDate = RESULT_DATE_FORMAT.parseLocalDate( date );
-		return parsedDate.withYear( requestedDate.getYear( ) );
-	}
-	
-	protected static DateTime parseTime( LocalDate requestedDate, String time ) throws ParseException {
-		return requestedDate.toDateTimeAtStartOfDay( ).plus( TIME_FORMAT.parseLocalTime( time ).getMillisOfDay( ) );
-	}
-	
-	protected static Interval parseDateTimeDescription( LocalDate dateContext, String description ) throws ParseException {
-		
-		if ( description.matches( ".* from .* to .*" ) ) {
-			
-			String[ ] descriptionParts = description.replaceFirst( ".* from ", "" ).split( " to " );
-			DateTime start = parseTime( dateContext, descriptionParts[ 0 ] );
-			DateTime end = parseTime( dateContext, descriptionParts[ 1 ] );
-			
-			if ( end.isBefore( start ) )
-				end = end.plusHours( 24 );
-			
-			return new Interval( start, end );
-			
-		} else if ( description.matches( ".* on ..., ... \\d{1,2}" ) ) {
-			
-			LocalDate date = parseDate( dateContext, description.replaceFirst( ".* on ", "" ) );
-			return new Interval( date.toDateTimeAtStartOfDay( ), date.toDateTimeAtStartOfDay( ).plusDays( 1 ).withTimeAtStartOfDay( ) );
-			
-		} else if ( description.matches( ".* at \\d{1,2}:\\d{2}.*" ) ) {
-			
-			DateTime start = parseTime( dateContext, description.replaceFirst( ".* at ", "" ) );
-			return new Interval( start, start.plusMinutes( 1 ) );
-		} else {
-			throw new ParseException( "Unrecognized date/time format in description", 0 );
-		}
-	}
-	
-	protected static void parseResult( LocalDate date, String result, ResponseHandler handler ) {
-		try {
-			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance( );
-			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder( );
-			Document d = dBuilder.parse( new ByteArrayInputStream( result.getBytes( ) ) );
-					
-			XPath xpath = XPathFactory.newInstance( ).newXPath( );
-			NodeList values = ( NodeList ) xpath.evaluate( "/settings/data/chart/graphs/graph/value", d, XPathConstants.NODESET );
-			
-			handler.start( date );
-			for ( int i = 0; i < values.getLength( ); i++ ) {
-				
-				Node descriptionNode = values.item( i ).getAttributes( ).getNamedItem( "description" );
-				String value = values.item( i ).getFirstChild( ).getNodeValue( );
-				if ( descriptionNode != null ) {
-					String description = descriptionNode.getTextContent( );
-					Interval interval = parseDateTimeDescription( date, description );
-					if ( interval != null )
-						handler.process( interval, value, description );
-				}
-			}
-			handler.end( date );
-
-		} catch ( Exception e ) {
-			throw new FitbitExecutionException( e );
-		}
-	}
-	
 	protected String authenticate( String email, String password ) throws FitbitAuthenticationException {
 
 		String response = null;
 		try {
 			//go ahead and consume it – if on Android, we don't have #consume on EntityUtils
-			EntityUtils.toString( this.httpClient.execute( new HttpGet( LOGIN_URL ) ).getEntity( ) );
+			EntityUtils.toString( this.getHttpClient( ).execute( new HttpGet( LOGIN_URL ) ).getEntity( ) );
 			
 			HttpPost loginPost = new HttpPost( LOGIN_URL );
 			List<NameValuePair> parameters = new ArrayList<NameValuePair>( );
@@ -567,16 +483,14 @@ public class Fitbit {
 		return m.group( 1 );
 	}
 	
-	protected URL buildUrl( String type, LocalDate date, Map<String,String> customParams ) throws MalformedURLException, URISyntaxException {
+	protected URL buildGraphUrl( String type, LocalDate from, LocalDate to, Map<String,String> customParams ) throws MalformedURLException, URISyntaxException {
 		
 		URIBuilder builder = new URIBuilder( GRAPH_BASE_URL );
-		builder.addParameter( "userId", this.userId( ) );
+		builder.addParameter( "userId", this.getUserId( ) );
 		builder.addParameter( "type", type );
-		builder.addParameter( "version", "amchart" );
-		builder.addParameter( "dataVersion", "14" );
-		builder.addParameter( "chart_type", "column2d" );
-		builder.addParameter( "period", "1d" );
-		builder.addParameter( "dateTo", REQUEST_DATE_FORMAT.print( date ) );
+		builder.addParameter( "apiFormat", "json" );
+		builder.addParameter( "dateFrom", DATE_FORMAT.print( from ) );
+		builder.addParameter( "dateTo", DATE_FORMAT.print( to ) );
 		
 		if ( customParams != null )
 			for ( String key : customParams.keySet( ) )
@@ -585,24 +499,19 @@ public class Fitbit {
 		return builder.build( ).toURL( );
 	}
 	
-	protected void execute( String type, FitbitQuery query, ResponseHandler handler ) {
-		execute( type, query, handler, null );
+	protected void getGraphData( String type, LocalDate date, Map<String,String> customParams, ResponseHandler handler ) {
+		getGraphData( type, date, date, customParams, handler );
 	}
 	
-	protected void execute( String type, FitbitQuery query, ResponseHandler handler, Map<String,String> customParams ) {
-		
-		DateTime date = query.from( );
-		while ( date.isBefore( query.to( ) ) ) {
-			execute( type, date.toLocalDate( ), handler, customParams );
-			date = date.plusDays( 1 );
-		}
-	}
-	
-	protected void execute( String type, LocalDate date, ResponseHandler handler, Map<String,String> customParams ) {
+	protected void getGraphData( String type, LocalDate from, LocalDate to, Map<String,String> customParams, ResponseHandler handler ) {
 		try {
-			HttpGet get = new HttpGet( buildUrl( type, date, customParams ).toString( ) );
-			String result = EntityUtils.toString( this.httpClient( ).execute( get ).getEntity( ) ).trim( );
-			parseResult( date, result, handler );
+			HttpGet get = new HttpGet( buildGraphUrl( type, from, to, customParams ).toString( ) );
+			HttpResponse response = this.getHttpClient( ).execute( get );
+			if ( response.getStatusLine( ).getStatusCode( ) != 200 )
+				throw new FitbitExecutionException( );
+			
+			String result = EntityUtils.toString( response.getEntity( ) ).trim( );
+			handler.processResponse( result );
 		} catch( IOException e ) {
 			throw new FitbitExecutionException( e );
 		} catch( URISyntaxException e ) {
@@ -610,27 +519,20 @@ public class Fitbit {
 		}
 	}
 	
-	//special handler for sleep -- must first fetch sleep session to get IDs.
-	protected void executeSleep( String type, FitbitQuery query, ResponseHandler handler ) {
-		
-		DateTime date = query.from( ).withTimeAtStartOfDay( );
-		//advance a day because Fitbit reports sleep sessions are associated to the date the session ends, not begins.
-		while ( date.isBefore( query.to( ).plusDays( 1 ) ) ) {
-			for ( String session : getSleepSessions( date.toLocalDate( ) ) ) {
-				Map<String,String> params = new HashMap<String,String>( );
-				params.put( "arg", session );
-				execute( type, date.toLocalDate( ), handler, params );
-			}
-			date = date.plusDays( 1 );
-		}
+	protected HttpClient getHttpClient( ) {
+		return this.httpClient;
 	}
 	
-	protected List<String> getSleepSessions( LocalDate date ) {
+	protected List<String> getSleepSessionIds( LocalDate date ) {
 		
 		List<String> sessions = new ArrayList<String>( );
 		try {
 			HttpGet pageGet = new HttpGet( SLEEP_BASE_URL + URL_DATE_FORMAT.print( date ) );
-			String pageResult = EntityUtils.toString( this.httpClient( ).execute( pageGet ).getEntity( ) );
+			HttpResponse response = this.getHttpClient( ).execute( pageGet );
+			if ( response.getStatusLine( ).getStatusCode( ) != 200 )
+				throw new FitbitExecutionException( );
+			
+			String pageResult = EntityUtils.toString( response.getEntity( ) );
 			Matcher m = Pattern.compile( "sleepRecord\\.([0-9]+)" ).matcher( pageResult );
 			while ( m.find( ) ) {
 				sessions.add( m.group( 1 ) );
@@ -640,9 +542,5 @@ public class Fitbit {
 		}
 		
 		return sessions;
-	}
-	
-	protected HttpClient httpClient( ) {
-		return this.httpClient;
 	}
 }
