@@ -126,8 +126,8 @@ Otherwise you may find data is lost or time shifted when traveling.
 ##Changes from version 2.x.x
 
 Previously, jFitbit relied on the XML endpoints that backed the Flash-based graphed on fitbit.com. With
-the advent of the new online dashboards backed by  ("/getNewGraphData"), jFitbit migrated forward. While the
-same basic raw data is available, derived activity and summary data is not as readily present.
+the advent of the new online dashboards backed by the "/getNewGraphData" JSON endpoint, jFitbit migrated forward. While the
+same basic data is available, derived activity and summary data is not as readily present.
 
 Along with a refactor of the data models, daily-resolution queries have been removed; instead this client focuses solely
 on providing intraday-resolution data. This release also find new added access to weight measurements and tracker status.
@@ -136,15 +136,15 @@ This update isn't plug-and-play with previous jFitbit releases. Presumably you c
 if desired, but I have no clue how long Fitbit will continue providing the older XML endpoints ("/getGraphData").
 
 ##Dependencies
+
  * [Apache HttpClient 4.3.x](http://hc.apache.org/)
  * [Gson 2.3.x](https://github.com/google/gson)
  * [Joda-Time 2.8.x](http://www.joda.org/joda-time/)
 
-
 ##Android Compatibility
 
 This project is built against Apache HttpClient 4.3.x. Since the HttpClient packaged with Android is effectively a
-fork of HttpClient 4.0,  compatibility is an annoying issue. This project can be used on Android, however, using the
+fork of HttpClient 4.0, compatibility is an annoying issue. This project can be used on Android, however, using the
 [HttpClient for Android project](https://hc.apache.org/httpcomponents-client-4.3.x/android-port.html) in place of
 the above Apache HttpClient dependency.
 
