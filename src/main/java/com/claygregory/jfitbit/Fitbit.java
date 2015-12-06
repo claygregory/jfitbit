@@ -352,7 +352,7 @@ public class Fitbit {
 	public List<Weight> getWeights( LocalDate from, LocalDate to ) {
 		
 		WeightResponseHandler responseHandler = new WeightResponseHandler( );
-		this.getGraphData( "weight", from, from, null, responseHandler );
+		this.getGraphData( "weight", from, to, null, responseHandler );
 	
 		return responseHandler.getWeights( );
 	}
