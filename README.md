@@ -2,52 +2,73 @@
 
 jFitbit is an unofficial Java Fitbit client. While Fitbit provides an official API for fetching daily summaries,
 intraday resolution data is generally unavailable. This client accesses the JSON endpoints backing
-the web graphs to pull down intraday data.
+the web graphs to download intraday data.
 
-**jFitbit has recently migrated to the JSON endpoints ("/getNewGraphData"), from the former XML endpoints – continue reading for changes**
-
-This client currently supports fetching the following data at an intraday resolution:
+This client currently supports fetching the following data:
 
  * Calorie burn/activity level on a 5-minute interval
  * Floor count on a 5-minute interval (if device supported)
  * Sleep level on a 1-minute interval
  * Step count on a 5-minute interval
  
-Beyond the above time series data, jFitbit also provides access to:
+Beyond above intraday time series data, jFitbit also provides access to:
 
   * Tracking device status and information
   * Weight measurements
 
 ##Example Usage
-```java
-Fitbit fb = Fitbit.create( "fitbit-email", "fitbit-password" );
 
-//display sync info to stdout
-FitbitTracker tracker = fb.getTracker( );
+### Tracker Information
+
+```java
+Fitbit fitbit = Fitbit.create( "[fitbit-email]", "[fitbit-password]" );
+
+FitbitTracker tracker = fitbit.getTracker( );
 System.out.println( "Tracker:       " + tracker.getProductName( ) );
 System.out.println( "Last sync:     " + tracker.getLastSync( ) );
 System.out.println( "Battery level: " + tracker.getBattery( ) );
+```
 
-//Write today's step log to stdout
-System.out.println( "\n\nToday's step activity" );
-for ( StepCount sc : fb.getStepCount( LocalDate.now( ) ) ) {
+## Step Count
+
+```java
+Fitbit fitbit = Fitbit.create( "[fitbit-email]", "[fitbit-password]" );
+
+System.out.println( "Today's step activity" );
+for ( StepCount sc : fitbit.getStepCount( LocalDate.now( ) ) ) {
     System.out.println( sc.getInterval( ).getStart( ) + " " + sc.getValue( ) );
 }
-     
-//Write today's floor log to stdout
-System.out.println( "\n\nToday's floor activity" );
-for ( FloorCount fc : fb.getFloorCount( LocalDate.now( ) ) ) {
+```
+
+
+### Floor Activity
+
+```java
+Fitbit fitbit = Fitbit.create( "[fitbit-email]", "[fitbit-password]" );
+
+System.out.println( "Today's floor activity" );
+for ( FloorCount fc : fitbit.getFloorCount( LocalDate.now( ) ) ) {
     System.out.println( fc.getInterval( ).getStart( ) + " " + fc.getValue( ) );
 }
-    
-//Write today's estimated calorie-burn to stdout
-System.out.println( "\n\nToday's calorie-burn" );
-for ( CalorieBurn cb : fb.getCaloriesBurned( LocalDate.now( ) ) ) {
+```
+
+### Calorie Burn
+
+```java
+Fitbit fitbit = Fitbit.create( "[fitbit-email]", "[fitbit-password]" );
+
+System.out.println( "Today's calorie-burn" );
+for ( CalorieBurn cb : fitbit.getCaloriesBurned( LocalDate.now( ) ) ) {
     System.out.println( cb.getInterval( ).getStart( ) + " " + cb.getValue( ) + "\t" + cb.getActivityLevel( ) );
 }
+```
 
-//Write today's sleep session stdout
-System.out.println( "\n\nToday's sleep" );
+### Sleep Log
+
+```java
+Fitbit fitbit = Fitbit.create( "[fitbit-email]", "[fitbit-password]" );
+
+System.out.println( "Today's sleep" );
 for ( SleepSession ss : fb.getSleepSessions( LocalDate.now( ) ) ) {
 
     System.out.println( "\nAsleep for " + ss.getDurationAsleep( ).getStandardMinutes( ) + " minutes" );
@@ -59,10 +80,17 @@ for ( SleepSession ss : fb.getSleepSessions( LocalDate.now( ) ) ) {
         System.out.println( level.getInterval( ).getStart( ) + " " + level.getValue( ) );
     }
 }
+```
 
-//Write weight measurements over past 30 days to stdout
-System.out.println( "\n\nRecent weight measurements" );
-for ( Weight w : fb.getWeights( LocalDate.now( ).minusDays( 30 ), LocalDate.now( ) ) ) {
+### Weight Measurements
+
+```java
+Fitbit fitbit = Fitbit.create( "[fitbit-email]", "[fitbit-password]" );
+
+System.out.println( "Recent weight measurements" );
+LocalDate from = LocalDate.now( ).minusDays( 30 );
+LocalDate to = LocalDate.now( );
+for ( Weight w : fb.getWeights( from, to ) ) {
     System.out.println( w.getDateTime( ) + " " + w.getValue( ) );
 }
 
