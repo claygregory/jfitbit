@@ -29,7 +29,7 @@ System.out.println( "Last sync:     " + tracker.getLastSync( ) );
 System.out.println( "Battery level: " + tracker.getBattery( ) );
 ```
 
-## Step Count
+### Step Count
 
 ```java
 Fitbit fitbit = Fitbit.create( "[fitbit-email]", "[fitbit-password]" );
