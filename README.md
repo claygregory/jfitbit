@@ -69,7 +69,7 @@ for ( CalorieBurn cb : fitbit.getCaloriesBurned( LocalDate.now( ) ) ) {
 Fitbit fitbit = Fitbit.create( "[fitbit-email]", "[fitbit-password]" );
 
 System.out.println( "Today's sleep" );
-for ( SleepSession ss : fb.getSleepSessions( LocalDate.now( ) ) ) {
+for ( SleepSession ss : fitbit.getSleepSessions( LocalDate.now( ) ) ) {
 
     System.out.println( "\nAsleep for " + ss.getDurationAsleep( ).getStandardMinutes( ) + " minutes" );
     System.out.println( "Restless for " + ss.getDurationRestless( ).getStandardMinutes( ) + " minutes" );
@@ -90,7 +90,7 @@ Fitbit fitbit = Fitbit.create( "[fitbit-email]", "[fitbit-password]" );
 System.out.println( "Recent weight measurements" );
 LocalDate from = LocalDate.now( ).minusDays( 30 );
 LocalDate to = LocalDate.now( );
-for ( Weight w : fb.getWeights( from, to ) ) {
+for ( Weight w : fitbit.getWeights( from, to ) ) {
     System.out.println( w.getDateTime( ) + " " + w.getValue( ) );
 }
 
@@ -103,15 +103,15 @@ As a workaround, users experiencing difficulty with their locale may temporarily
 en_US as follows:
 
 ```java
-Fitbit fb = Fitbit.create( "fitbit-email", "fitbit-password" );
+Fitbit fitbit = Fitbit.create( "fitbit-email", "fitbit-password" );
 
 // Override locale to be en_US for compatibility
-fb.enableLocaleOverride( );
+fitbit.enableLocaleOverride( );
 
 //data download and processing
 
 // Restore original user locale upon completion
-fb.restoreUserLocale( );
+fitbit.restoreUserLocale( );
 ```
 
 ###Time Zone
