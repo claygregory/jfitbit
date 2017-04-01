@@ -1,10 +1,8 @@
-#jFitbit
+# jFitbit
 
-jFitbit is an unofficial Java Fitbit client. While Fitbit provides an official API for fetching daily summaries,
-intraday resolution data is generally unavailable. This client accesses the JSON endpoints backing
-the web graphs to download intraday data.
+jFitbit was created at a time when Fitbit refused to offer intraday data access via the official API, except to partner applications. To work around this limitation, jFitbit scrapes the endpoints backing the web graphs to download intraday data. Fitbit has since changed their stance: individuals are now granted personal access to intraday data (only for the account associated with the API key), without question. So in 2017, if you're looking for access to your personal Fitbit data, this client is no longer necessary. It continues to function, but I'd generally recommend going the officially supported route whenever possible.
 
-This client currently supports fetching the following data:
+This client currently supports the following data:
 
  * Calorie burn/activity level on a 5-minute interval
  * Floor count on a 5-minute interval (if device supported)
@@ -16,7 +14,7 @@ Beyond above intraday time series data, jFitbit also provides access to:
   * Tracking device status and information
   * Weight measurements
 
-##Example Usage
+## Example Usage
 
 ### Tracker Information
 
@@ -96,7 +94,7 @@ for ( Weight w : fitbit.getWeights( from, to ) ) {
 
 ```
 
-##Notes on Localization
+## Notes on Localization
 
 Responses may contain localized strings based on the country selection of the user account.
 As a workaround, users experiencing difficulty with their locale may temporarily switch their account to
@@ -114,7 +112,7 @@ fitbit.enableLocaleOverride( );
 fitbit.restoreUserLocale( );
 ```
 
-###Time Zone
+### Time Zone
 
 Another issue can result from discrepancies between local time and the time zone selected
 in the Fitbit web profile. As the JSON timestamps lack zone information, we assume the local system time matches
@@ -123,7 +121,7 @@ that selected zone on the Fitbit account.
 If using the mobile app to sync, disabling the option to set time zone automatically is also recommended.
 Otherwise you may find data is lost or time shifted when traveling.
 
-##Changes from version 2.x.x
+## Changes from version 2.x.x
 
 Previously, jFitbit relied on the XML endpoints that backed the Flash-based graphed on fitbit.com. With
 the advent of the new online dashboards backed by the "/getNewGraphData" JSON endpoint, jFitbit migrated forward. While the
@@ -135,23 +133,23 @@ on providing intraday-resolution data. This release also find new added access t
 This update isn't plug-and-play with previous jFitbit releases. Presumably you can continue using the 2.x client
 if desired, but I have no clue how long Fitbit will continue providing the older XML endpoints ("/getGraphData").
 
-##Dependencies
+## Dependencies
 
  * [Apache HttpClient 4.3.x](http://hc.apache.org/)
  * [Gson 2.3.x](https://github.com/google/gson)
  * [Joda-Time 2.8.x](http://www.joda.org/joda-time/)
 
-##Android Compatibility
+## Android Compatibility
 
 This project is built against Apache HttpClient 4.3.x. Since the HttpClient packaged with Android is effectively a
 fork of HttpClient 4.0, compatibility is an annoying issue. This project can be used on Android, however, using the
 [HttpClient for Android project](https://hc.apache.org/httpcomponents-client-4.3.x/android-port.html) in place of
 the above Apache HttpClient dependency.
 
-##License
+## License
 
 See the included [LICENSE](LICENSE.md) for rights and limitations under the terms of the MIT license.
 
-##Downloads
+## Downloads
 
 Source is hosted at the [jFitbit GitHub repository](https://github.com/claygregory/jfitbit).
